@@ -63,10 +63,10 @@ function update() {
     const currentTime = Date.now();
 
     // Обновление позиции игрока
-    if (keys['w']) player.y -= player.speed;
-    if (keys['s']) player.y += player.speed;
-    if (keys['a']) player.x -= player.speed;
-    if (keys['d']) player.x += player.speed;
+    if (keys['w']) player.y -= player.speed*(player.y>0);
+    if (keys['s']) player.y += player.speed*(player.y<height);
+    if (keys['a']) player.x -= player.speed*(player.x>0);
+    if (keys['d']) player.x += player.speed*(player.x<width);
 
     // Обновление позиции монстров
     monsters.forEach(monster => {
@@ -111,7 +111,16 @@ function update() {
             }
             return true;
         });
-        bullets = bullets.filter(bullet => {return bullet.pen>=0;});
+        bullets = bullets.filter(bullet => {
+            if(bullet.x<0||bullet.x>width){
+                return false;
+            }
+            if(bullet.y<0||bullet.y>height){
+                return false;
+            }
+            return bullet.pen>=0;
+            });
+        //bullets = bullets.filter(bullet => {return bullet.pen>=0;});
     });
     
     // Проверка столкновений игрока с монстрами
@@ -137,13 +146,6 @@ function update() {
         }
         return true;
     });
-
-    // Увеличение частоты появления монстров со временем
-    //if (currentTime - lastSpawnTime > spawnInterval) {
-    //    createMonster();
-    //    lastSpawnTime = currentTime;
-    //    spawnInterval /= 1.01;
-    //}
 }
 
 // Рендеринг игры
@@ -187,6 +189,8 @@ function render() {
     ctx.fillText(`Health: ${player.health}`, 10, 80);
     ctx.fillText(`Level: ${player.lvl}`, 10, 110);
     ctx.fillText(`Enemy Spawn Cooldown: ${spawnInterval}`, 10, 140);
+    ctx.fillText(`X: ${player.x}`, 10, 200);
+    ctx.fillText(`Y: ${player.y}`, 10, 230);
 
     // Отображение таймера
     const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
