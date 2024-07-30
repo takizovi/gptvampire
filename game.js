@@ -1,4 +1,3 @@
-// game.js
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -14,7 +13,7 @@ let monsters = [];
 let bullets = [];
 let pickups = [];
 let score = 0;
-let weaponCost = 10;
+let weaponCost = 100;
 let bulletDelay = 500; // Задержка между выстрелами в миллисекундах
 let lastShotTime = 0;
 let spawnInterval = 1000;
@@ -26,10 +25,15 @@ let keys = {};
 
 // Создание монстров
 function createMonster() {
-    const size = 20;
+    const hp = Math.floor(Math.random() * player.lvl/2) + 1;
+    const size = 10+ 10 * (Math.floor(hp / 5) + 1);
     const x = Math.random() * (width - size);
     const y = Math.random() * (height - size);
-    const monster = { x, y, size, color: 'green', speed: 1 };
+    const dx = player.x - x;
+    const dy = player.y - y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if(distance<player.size*5)return createMonster();
+    const monster = { x, y, size, color: 'green', speed: 1, hp, lastHitMobTime: 0 ,sthp:hp};
     monsters.push(monster);
 }
 
@@ -53,8 +57,8 @@ function createBullet(target) {
 }
 
 // Создание выпадения очков
-function createPickup(x, y) {
-    const pickup = { x, y, size: 10, color: 'blue' };
+function createPickup(x, y, xp) {
+    const pickup = { x, y, size: 9+xp, color: 'blue', xp };
     pickups.push(pickup);
 }
 
@@ -63,10 +67,10 @@ function update() {
     const currentTime = Date.now();
 
     // Обновление позиции игрока
-    if (keys['w']) player.y -= player.speed*(player.y>0);
-    if (keys['s']) player.y += player.speed*(player.y<height);
-    if (keys['a']) player.x -= player.speed*(player.x>0);
-    if (keys['d']) player.x += player.speed*(player.x<width);
+    if (keys['KeyW']) player.y -= player.speed * (player.y > 0);
+    if (keys['KeyS']) player.y += player.speed * (player.y < height);
+    if (keys['KeyA']) player.x -= player.speed * (player.x > 0);
+    if (keys['KeyD']) player.x += player.speed * (player.x < width);
 
     // Обновление позиции монстров
     monsters.forEach(monster => {
@@ -101,34 +105,39 @@ function update() {
     // Проверка столкновений пуль с монстрами
     bullets.forEach(bullet => {
         bullet.pen -= !monsters.every((monster, index) => {
+            let bobo = true;
             const dx = monster.x - bullet.x;
             const dy = monster.y - bullet.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < monster.size) {
-                createPickup(monster.x, monster.y); // Создаем выпадение очков
+            if (distance < monster.size && monster.lastHitMobTime + 100 < currentTime) {
+                monster.hp--;
+                bobo = false;
+                monster.lastHitMobTime = currentTime;
+            }
+            if (monster.hp <= 0) {
+                createPickup(monster.x, monster.y, monster.sthp); // Создаем выпадение очков
                 monsters.splice(index, 1);
                 return false;
             }
-            return true;
+            return bobo;
         });
         bullets = bullets.filter(bullet => {
-            if(bullet.x<0||bullet.x>width){
+            if (bullet.x < 0 || bullet.x > width) {
                 return false;
             }
-            if(bullet.y<0||bullet.y>height){
+            if (bullet.y < 0 || bullet.y > height) {
                 return false;
             }
-            return bullet.pen>=0;
-            });
-        //bullets = bullets.filter(bullet => {return bullet.pen>=0;});
+            return bullet.pen >= 0;
+        });
     });
-    
+
     // Проверка столкновений игрока с монстрами
     monsters = monsters.filter(monster => {
         const dx = monster.x - player.x;
         const dy = monster.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < player.size) {
+        if (distance < monster.size+player.size) {
             player.health--;
             return false; // Удалить монстра
         }
@@ -141,7 +150,7 @@ function update() {
         const dy = pickup.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < pickup.size) {
-            score++;
+            score+=pickup.xp;
             return false; // Удалить pickup
         }
         return true;
@@ -165,6 +174,8 @@ function render() {
         ctx.beginPath();
         ctx.arc(monster.x, monster.y, monster.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.fillText(monster.hp, monster.x - 5, monster.y + 7);
     });
 
     // Отрисовка пуль
@@ -199,21 +210,21 @@ function render() {
 
 // Обработчик нажатия клавиш
 document.addEventListener('keydown', event => {
-    keys[event.key] = true;
-    if (event.key === ' ') {
+    keys[event.code] = true;
+    if (event.code === 'Space') {
         if (score >= weaponCost) {
             score -= weaponCost;
             bulletDelay = parseInt(Math.max(0, bulletDelay - bulletDelay / 10));
             weaponCost += parseInt(weaponCost / 5);
             player.lvl++;
-            spawnInterval /= 1.01;
+            spawnInterval = parseInt(spawnInterval / 1.02);
         }
     }
 });
 
 // Обработчик отпускания клавиш
 document.addEventListener('keyup', event => {
-    keys[event.key] = false;
+    keys[event.code] = false;
 });
 
 // Главный игровой цикл
